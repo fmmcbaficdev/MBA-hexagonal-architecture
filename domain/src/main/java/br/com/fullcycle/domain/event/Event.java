@@ -26,6 +26,7 @@ public class Event {
     private LocalDate date;
     private int totalSpots;
     private PartnerId partnerId;
+    private EventStatus status;
 
     public Event(
             final EventId eventId,
@@ -35,11 +36,24 @@ public class Event {
             final PartnerId partnerId,
             final Set<EventTicket> tickets
     ) {
+        this(eventId, name, date, totalSpots, partnerId, EventStatus.ACTIVE, tickets);
+    }
+
+    public Event(
+            final EventId eventId,
+            final String name,
+            final String date,
+            final Integer totalSpots,
+            final PartnerId partnerId,
+            final EventStatus status,
+            final Set<EventTicket> tickets
+    ) {
         this(eventId, tickets);
         this.setName(name);
         this.setDate(date);
         this.setTotalSpots(totalSpots);
         this.setPartnerId(partnerId);
+        this.setStatus(status);
     }
 
     private Event(final EventId eventId, final Set<EventTicket> tickets) {
@@ -62,12 +76,26 @@ public class Event {
             final String date,
             final int totalSpots,
             final String partnerId,
+            final EventStatus status,
             final Set<EventTicket> tickets
     ) {
-        return new Event(EventId.with(id), name, date, totalSpots, PartnerId.with(partnerId), tickets);
+        return new Event(EventId.with(id), name, date, totalSpots, PartnerId.with(partnerId), status, tickets);
+    }
+
+    public void cancel() {
+        if (EventStatus.CANCELLED.equals(this.status)) {
+            throw new ValidationException("Event already cancelled");
+        }
+
+        this.setStatus(EventStatus.CANCELLED);
+        this.domainEvents.add(new EventCancelled(this.eventId));
     }
 
     public EventTicket reserveTicket(final CustomerId aCustomerId) {
+        if (EventStatus.CANCELLED.equals(this.status)) {
+            throw new ValidationException("Event is cancelled");
+        }
+
         this.allTickets().stream()
                 .filter(it -> Objects.equals(it.customerId(), aCustomerId))
                 .findFirst()
@@ -106,6 +134,10 @@ public class Event {
 
     public PartnerId partnerId() {
         return partnerId;
+    }
+
+    public EventStatus status() {
+        return status;
     }
 
     public Set<EventTicket> allTickets() {
@@ -159,5 +191,13 @@ public class Event {
         }
 
         this.totalSpots = totalSpots;
+    }
+
+    private void setStatus(final EventStatus status) {
+        if (status == null) {
+            throw new ValidationException("Invalid status for Event");
+        }
+
+        this.status = status;
     }
 }
